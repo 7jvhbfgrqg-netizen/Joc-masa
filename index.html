@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Rotary Runner</title>
+    <style>
+        body { margin: 0; overflow: hidden; background: #222; font-family: sans-serif; touch-action: none; }
+        canvas { display: block; margin: auto; }
+        #ui { position: absolute; top: 20px; width: 100%; text-align: center; color: white; pointer-events: none; }
+        h1 { margin: 0; font-size: 20px; }
+        p { font-size: 14px; color: #aaa; }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h1>Scor: <span id="score">0</span></h1>
+        <p>Atinge ecranul pentru a sări!</p>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Setam dimensiunile ecranului
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    // Variabile Joc
+    let gameSpeed = 0.02;
+    let rotation = 0;
+    let score = 0;
+    let isGameOver = false;
+
+    // Jucator
+    let player = {
+        distanceFromCenter: 100, // Raza mesei
+        yVelocity: 0,
+        isJumping: false,
+        height: 20,
+        width: 20,
+        jumpPower: 12 // Cat de sus sare
+    };
+
+    // Obstacole (unghiuri in radiani)
+    let obstacles = [2, 4, 5.5]; 
+
+    function resetGame() {
+        rotation = 0;
+        score = 0;
+        obstacles = [2, 4, 5.5];
+        isGameOver = false;
+        gameSpeed = 0.02;
+        animate();
+    }
+
+    function update() {
+        if (isGameOver) return;
+
+        // Rotim masa
+        rotation += gameSpeed;
+        score++;
+        document.getElementById('score').innerText = Math.floor(score / 10);
+        
+        // Crestem viteza incet
+        if(score % 500 === 0) gameSpeed += 0.002;
+
+        // Gravitatie Jucator
+        if (player.isJumping) {
+            player.distanceFromCenter += player.yVelocity;
+            player.yVelocity -= 0.6; // Gravitatie
+
+            // Aterizare
+            if (player.distanceFromCenter <= 100) {
+                player.distanceFromCenter = 100;
+                player.isJumping = false;
+                player.yVelocity = 0;
+            }
+        }
+
+        // Verificam coliziunile
+        obstacles.forEach(obstacleAngle => {
+            // Normalizam unghiul curent al obstacolului (sa fie intre 0 si 2PI)
+            let currentObstaclePos = (obstacleAngle - rotation) % (Math.PI * 2);
+            if (currentObstaclePos < 0) currentObstaclePos += Math.PI * 2;
+
+            // Jucatorul e mereu la pozitia 3PI/2 (sus, ora 12)
+            // Verificam daca obstacolul trece prin zona de sus (aprox 4.71 radiani)
+            let playerPos = 3 * Math.PI / 2; // 270 grade (sus)
+            
+            // Daca obstacolul e aproape de jucator SI jucatorul e pe jos
+            if (Math.abs(currentObstaclePos - playerPos) < 0.15 && !player.isJumping) {
+                isGameOver = true;
+                alert("Game Over! Scor: " + Math.floor(score/10) + ". Apasa OK pentru restart.");
+                resetGame();
+            }
+        });
+
+        // Regeneram obstacole
+        if (obstacles[0] - rotation < -2) {
+            obstacles.shift(); // Scoatem obstacolul vechi
+            // Adaugam unul nou la o distanta random
+            let lastObstacle = obstacles[obstacles.length - 1];
+            obstacles.push(lastObstacle + 1.5 + Math.random() * 2);
+        }
+    }
+
+    function draw() {
+        // Stergem ecranul
+        ctx.fillStyle = '#222';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.save();
+        
+        // Mutam "camera" in centrul ecranului
+        ctx.translate(canvas.width / 2, canvas.height / 2 + 100);
+
+        // 1. Desenam Masa (Cerc mare)
+        ctx.beginPath();
+        ctx.arc(0, 0, 100, 0, Math.PI * 2);
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // 2. Desenam Obstacolele (se rotesc odata cu masa)
+        ctx.save();
+        ctx.rotate(-rotation); // Rotim contextul invers ca sa para ca se invarte masa
+        
+        ctx.fillStyle = '#00ff00'; // Verde
+        obstacles.forEach(angle => {
+            let x = Math.cos(angle) * 100;
+            let y = Math.sin(angle) * 100;
+            
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.rotate(angle); // Rotim patratul sa stea pe cerc
+            ctx.fillRect(-10, -20, 20, 20); // Obstacolul
+            ctx.restore();
+        });
+        ctx.restore();
+
+        // 3. Desenam Jucatorul (El sta fix, masa se invarte sub el)
+        // Pozitia jucatorului este fixa vizual (sus), dar se misca pe Y cand sare
+        ctx.fillStyle = '#ff3333'; // Rosu
+        let playerY = -player.distanceFromCenter;
+        ctx.fillRect(-10, playerY - 20, 20, 20);
+
+        ctx.restore();
+    }
+
+    function animate() {
+        update();
+        draw();
+        if (!isGameOver) requestAnimationFrame(animate);
+    }
+
+    // Input (Touch sau Click)
+    function jump() {
+        if (!player.isJumping) {
+            player.isJumping = true;
+            player.yVelocity = player.jumpPower;
+        }
+    }
+
+    window.addEventListener('touchstart', jump);
+    window.addEventListener('mousedown', jump);
+    window.addEventListener('keydown', (e) => { if(e.code === 'Space') jump(); });
+
+    // Start joc
+    animate();
+
+</script>
+</body>
+</html>

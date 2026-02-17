@@ -1,2 +1,2 @@
 # Joc-masa
-N
+Nbet
